@@ -21,8 +21,8 @@ jobs:
             asset_name: libmagika_ffi-macos-aarch64.dylib
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: libmagika_ffi.dll
-            asset_name: libmagika_ffi-windows-x86_64.dll
+            artifact_name: magika_ffi.dll
+            asset_name: magika_ffi-windows-x86_64.dll
 
     runs-on: ${{ matrix.os }}
 
