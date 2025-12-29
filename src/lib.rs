@@ -6,68 +6,53 @@ use std::ptr;
 pub struct MagikaSessionHandle(magika::Session);
 
 #[derive(serde::Serialize)]
-struct PredictionJson<'a> {
-    status: &'static str,
-    output: &'a str,
+struct MagikaValue<'a> {
+    output: &'a magika::TypeInfo,
     score: f32,
-    overwrite_reason: &'static str,
-    dl: &'a str,
-    r#type: &'static str,
 }
 
 #[derive(serde::Serialize)]
-struct ErrorJson<'a> {
+struct MagikaResponse<'a> {
     status: &'static str,
-    message: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+    #[serde(rename = "type")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    r#type: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    value: Option<MagikaValue<'a>>,
 }
 
+const INTERNAL_ERROR_JSON: &str = r#"{"status":"error","message":"Internal serialization error"}"#;
+
 fn filetype_to_json(ft: &magika::FileType) -> String {
-    use magika::{FileType, OverwriteReason};
-    match ft {
-        FileType::Directory => serde_json::to_string(&PredictionJson {
-            status: "ok",
-            output: ft.info().label,
+    use magika::FileType;
+    let r#type = match ft {
+        FileType::Directory => "directory",
+        FileType::Symlink => "symlink",
+        _ => "file",
+    };
+
+    let response = MagikaResponse {
+        status: "ok",
+        message: None,
+        r#type: Some(r#type),
+        value: Some(MagikaValue {
+            output: ft.info(),
             score: ft.score(),
-            overwrite_reason: "none",
-            dl: "undefined",
-            r#type: "directory",
-        })
-        .unwrap(),
-        FileType::Symlink => serde_json::to_string(&PredictionJson {
-            status: "ok",
-            output: ft.info().label,
-            score: ft.score(),
-            overwrite_reason: "none",
-            dl: "undefined",
-            r#type: "symlink",
-        })
-        .unwrap(),
-        FileType::Ruled(_) => serde_json::to_string(&PredictionJson {
-            status: "ok",
-            output: ft.info().label,
-            score: ft.score(),
-            overwrite_reason: "none",
-            dl: "undefined",
-            r#type: "file",
-        })
-        .unwrap(),
-        FileType::Inferred(inf) => {
-            let overwrite_reason = match inf.content_type {
-                None => "none",
-                Some((_, OverwriteReason::LowConfidence)) => "low-confidence",
-                Some((_, OverwriteReason::OverwriteMap)) => "overwrite-map",
-            };
-            serde_json::to_string(&PredictionJson {
-                status: "ok",
-                output: ft.info().label,
-                score: ft.score(),
-                overwrite_reason,
-                dl: inf.inferred_type.info().label,
-                r#type: "file",
-            })
-            .unwrap()
-        }
-    }
+        }),
+    };
+    serde_json::to_string(&response).unwrap_or_else(|_| INTERNAL_ERROR_JSON.to_string())
+}
+
+fn error_to_json(message: String) -> String {
+    let response: MagikaResponse<'_> = MagikaResponse {
+        status: "error",
+        message: Some(message),
+        r#type: None,
+        value: None,
+    };
+    serde_json::to_string(&response).unwrap_or_else(|_| INTERNAL_ERROR_JSON.to_string())
 }
 
 unsafe fn cstring_or_null(s: String) -> *const c_char {
@@ -103,11 +88,12 @@ pub extern "C" fn magika_identify_path_json(
         return ptr::null();
     }
     let h = unsafe { &mut *handle };
-    let path = unsafe { CStr::from_ptr(path) }.to_string_lossy().into_owned();
+    let path = unsafe { CStr::from_ptr(path) }
+        .to_string_lossy()
+        .into_owned();
     let json = match h.0.identify_file_sync(&path) {
         Ok(ft) => filetype_to_json(&ft),
-        Err(e) => serde_json::to_string(&ErrorJson { status: "error", message: &format!("{e}") })
-            .unwrap(),
+        Err(e) => error_to_json(format!("{e}")),
     };
     unsafe { cstring_or_null(json) }
 }
@@ -125,8 +111,7 @@ pub extern "C" fn magika_identify_content_json(
     let slice = unsafe { std::slice::from_raw_parts(data, len) };
     let json = match h.0.identify_content_sync(slice) {
         Ok(ft) => filetype_to_json(&ft),
-        Err(e) => serde_json::to_string(&ErrorJson { status: "error", message: &format!("{e}") })
-            .unwrap(),
+        Err(e) => error_to_json(format!("{e}")),
     };
     unsafe { cstring_or_null(json) }
 }
@@ -139,4 +124,3 @@ pub extern "C" fn magika_string_free(s: *const c_char) {
         }
     }
 }
-

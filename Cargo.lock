@@ -280,13 +280,14 @@ checksum = "074c94e982f344b74c7c498750aa23a72797aaddd5a33e658510437cc37b54d8"
 dependencies = [
  "ndarray",
  "ort",
+ "serde",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "magika_ffi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "magika",
  "ort",
