@@ -13,12 +13,12 @@ struct MagikaValue<'a> {
 
 #[derive(serde::Serialize)]
 struct MagikaResponse<'a> {
-    status: &'static str,
+    status: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     message: Option<String>,
     #[serde(rename = "type")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    r#type: Option<&'static str>,
+    r#type: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     value: Option<MagikaValue<'a>>,
 }
