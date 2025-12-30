@@ -6,38 +6,6 @@ Magika is an AI-powered file type detection tool that uses a deep learning model
 
 This project exposes its functionality via C-compatible bindings, allowing it to be used from languages like C, C++, Python (via ctypes), or any other environment that supports C FFI.
 
-## API Reference
-
-The library provides the following functions:
-
-### Session Management
-
-`MagikaSessionHandle* magika_session_new()`
-
- Creates a new Magika session. Returns `NULL` on failure.
-
-`void magika_session_free(MagikaSessionHandle* handle)`
-
-Frees a Magika session.
-
-### Identification
-
-`const char* magika_identify_path_json(MagikaSessionHandle* handle, const char* path)`
-
-Identifies a file at the given path. Returns a JSON string. Caller owns the returned string and must free it using `magika_string_free`.
-
-`const char* magika_identify_content_json(MagikaSessionHandle* handle, const unsigned char* data, size_t len)`
-
-Identifies a file from a memory buffer. Returns a JSON string. Caller owns the returned string and must free it using `magika_string_free`.
-
-### Memory Management
-
-`void magika_string_free(const char* s)`
-
-Frees a JSON string returned by the identification functions.
-
-You must call this function for every string returned by `magika_identify_path_json` or `magika_identify_content_json` to avoid memory leaks.
-
 ## Usage Example (C-like)
 
 ```c
@@ -97,6 +65,3 @@ When `status` is "ok", the `value` field contains the detection results.
 }
 ```
 
-## License
-
-This project is licensed under the [Apache-2.0 License](LICENSE).

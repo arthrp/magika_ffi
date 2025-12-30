@@ -88,9 +88,7 @@ pub extern "C" fn magika_identify_path_json(
         return ptr::null();
     }
     let h = unsafe { &mut *handle };
-    let path = unsafe { CStr::from_ptr(path) }
-        .to_string_lossy()
-        .into_owned();
+    let path = unsafe { CStr::from_ptr(path) }.to_string_lossy().into_owned();
     let json = match h.0.identify_file_sync(&path) {
         Ok(ft) => filetype_to_json(&ft),
         Err(e) => error_to_json(format!("{e}")),
@@ -122,5 +120,56 @@ pub extern "C" fn magika_string_free(s: *const c_char) {
         unsafe {
             drop(CString::from_raw(s as *mut c_char));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    struct TestSession(*mut MagikaSessionHandle);
+    impl Drop for TestSession {
+        fn drop(&mut self) {
+            magika_session_free(self.0);
+        }
+    }
+
+    struct TestString(*const c_char);
+    impl Drop for TestString {
+        fn drop(&mut self) {
+            magika_string_free(self.0);
+        }
+    }
+
+    #[test]
+    fn test_magika_identify_content_json() {
+        let session_handle = magika_session_new();
+        assert!(!session_handle.is_null());
+        let _session = TestSession(session_handle);
+
+        let content =
+            b"let content: string;\nconst counter: number = 5;\ncontent = readFile(filePath);";
+        let json_ptr =
+            magika_identify_content_json(session_handle, content.as_ptr(), content.len());
+        assert!(!json_ptr.is_null());
+        let _json = TestString(json_ptr);
+
+        let json_str = unsafe { CStr::from_ptr(json_ptr) }.to_str().unwrap();
+        let v: Value = serde_json::from_str(json_str).unwrap();
+
+        // Note: these outputs depend on the underlying model
+        assert_eq!(v["status"], "ok");
+        assert_eq!(v["type"], "file");
+        assert_eq!(v["value"]["output"]["label"], "typescript");
+        assert_eq!(v["value"]["output"]["mime_type"], "application/typescript");
+        assert_eq!(v["value"]["output"]["group"], "code");
+        assert_eq!(v["value"]["output"]["description"], "TypeScript source");
+        assert_eq!(
+            v["value"]["output"]["extensions"],
+            serde_json::json!(["ts", "mts", "cts"])
+        );
+        assert_eq!(v["value"]["output"]["is_text"], true);
+        assert!(v["value"]["score"].as_f64().unwrap() > 0.7);
     }
 }
