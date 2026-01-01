@@ -50,7 +50,6 @@ When `status` is "ok", the `value` field contains the detection results.
 }
 ```
 
-*   `status`: "ok"
 *   `type`: One of "file", "directory", or "symlink".
 *   `value`: Contains the detection details (only present if type is not directory/symlink and detection succeeded).
     *   `output`: The Magika `TypeInfo` object (label, mime_type, etc.).
